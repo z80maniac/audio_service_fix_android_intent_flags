@@ -457,10 +457,11 @@ public class AudioServicePlugin implements FlutterPlugin, ActivityAware {
     }
 
     private static class AudioHandlerInterface implements MethodCallHandler, AudioService.ServiceListener {
+        private static final int SILENCE_SAMPLE_RATE = 44100;
         public BinaryMessenger messenger;
         public MethodChannel channel;
         private AudioTrack silenceAudioTrack;
-        private static final int SILENCE_SAMPLE_RATE = 44100;
+        private final Handler handler = new Handler(Looper.getMainLooper());
 
         public AudioHandlerInterface(BinaryMessenger messenger) {
             this.messenger = messenger;
@@ -576,8 +577,8 @@ public class AudioServicePlugin implements FlutterPlugin, ActivityAware {
         }
 
         @Override
-        public void onClick(MediaControl mediaControl) {
-            invokeMethod("click", mapOf("button", mediaControl.ordinal()));
+        public void onClick(MediaButton mediaButton) {
+            invokeMethod("click", mapOf("button", mediaButton.ordinal()));
         }
 
         @Override
@@ -765,8 +766,6 @@ public class AudioServicePlugin implements FlutterPlugin, ActivityAware {
             disposeFlutterEngine();
         }
 
-        Handler handler = new Handler(Looper.getMainLooper());
-
         @Override
         public void onMethodCall(MethodCall call, Result result) {
             Map<?, ?> args = (Map<?, ?>)call.arguments;
@@ -823,13 +822,14 @@ public class AudioServicePlugin implements FlutterPlugin, ActivityAware {
                 // On the native side, we must represent the update time relative to the boot time.
                 long updateTimeSinceBoot = updateTimeSinceEpoch - bootTime;
 
-                List<NotificationCompat.Action> actions = new ArrayList<>();
+                List<MediaControl> actions = new ArrayList<>();
                 long actionBits = 0;
                 for (Map<?, ?> rawControl : rawControls) {
                     String resource = (String)rawControl.get("androidIcon");
+                    String label = (String)rawControl.get("label");
                     long actionCode = 1 << ((Integer)rawControl.get("action"));
                     actionBits |= actionCode;
-                    actions.add(AudioService.instance.action(resource, (String)rawControl.get("label"), actionCode));
+                    actions.add(new MediaControl(resource, label, actionCode));
                 }
                 for (Integer rawSystemAction : rawSystemActions) {
                     long actionCode = 1 << rawSystemAction;
